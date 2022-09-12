@@ -80,12 +80,14 @@ public class PostgreToElasticSearch {
                 return "create".equals(jsonObject.get("operation"));
             }
         });
+
         SingleOutputStreamOperator<JSONObject> deleteStream = pgStream.filter(new FilterFunction<JSONObject>() {
             @Override
             public boolean filter(JSONObject jsonObject) throws Exception {
                 return "delete".equals(jsonObject.get("operation"));
             }
         });
+
         SingleOutputStreamOperator<JSONObject> updateStream = pgStream.filter(new FilterFunction<JSONObject>() {
             @Override
             public boolean filter(JSONObject jsonObject) throws Exception {
