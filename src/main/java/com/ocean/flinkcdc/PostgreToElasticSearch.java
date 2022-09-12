@@ -48,6 +48,7 @@ public class PostgreToElasticSearch {
         properties.setProperty("debezium.slot.drop.on.stop", "true");
         properties.setProperty("include.schema.changes", "true");
 
+
 //        自定义cdc数据源
         SourceFunction<String> sourceFunction = PostgreSQLSource.<String>builder()
                 .hostname("172.16.8.222")
