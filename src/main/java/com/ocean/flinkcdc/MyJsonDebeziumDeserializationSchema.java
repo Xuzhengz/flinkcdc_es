@@ -5,6 +5,7 @@ import com.ververica.cdc.debezium.DebeziumDeserializationSchema;
 import io.debezium.data.Envelope;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.util.Collector;
+import org.apache.kafka.common.utils.Java;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -13,9 +14,9 @@ import org.apache.kafka.connect.source.SourceRecord;
  * @author 徐正洲
  * @date 2022/9/12-17:25
  */
-public class MyJsonDebeziumDeserializationSchema implements DebeziumDeserializationSchema<String> {
+public class MyJsonDebeziumDeserializationSchema implements DebeziumDeserializationSchema<JSONObject> {
     @Override
-    public void deserialize(SourceRecord sourceRecord, Collector<String> collector) throws Exception {
+    public void deserialize(SourceRecord sourceRecord, Collector<JSONObject> collector) throws Exception {
         String topic = sourceRecord.topic();
         String[] arr = topic.split("\\.");
         String db = arr[1];
@@ -26,25 +27,38 @@ public class MyJsonDebeziumDeserializationSchema implements DebeziumDeserializat
         Struct value = (Struct) sourceRecord.value();
         //获取变化后的数据
         Struct after = value.getStruct("after");
-        //创建 JSON 对象用于存储数据信息
-        JSONObject data = new JSONObject();
-        for (Field field : after.schema().fields()) {
-            Object o = after.get(field);
-            data.put(field.name(), o);
+        if (after != null) {
+            //创建 JSON 对象用于存储数据信息
+            JSONObject afterData = new JSONObject();
+            for (Field field : after.schema().fields()) {
+                Object o = after.get(field);
+                afterData.put(field.name(), o);
+            }
+            //创建 JSON 对象用于封装最终返回值数据信息
+            JSONObject afterResult = new JSONObject();
+            afterResult.put("operation", operation.toString().toLowerCase());
+            afterResult.put("data", afterData);
+            //发送数据至下游
+            collector.collect(afterResult);
+        } else {
+            Struct before = value.getStruct("before");
+            //创建 JSON 对象用于存储数据信息
+            JSONObject beforeData = new JSONObject();
+            for (Field field : before.schema().fields()) {
+                Object o = before.get(field);
+                beforeData.put(field.name(), o);
+            }
+            //创建 JSON 对象用于封装最终返回值数据信息
+            JSONObject beforeResult = new JSONObject();
+            beforeResult.put("operation", operation.toString().toLowerCase());
+            beforeResult.put("data", beforeData);
+            collector.collect(beforeResult);
         }
-        //创建 JSON 对象用于封装最终返回值数据信息
-        JSONObject result = new JSONObject();
-        result.put("operation", operation.toString().toLowerCase());
-        result.put("data", data);
-        result.put("database", db);
-        result.put("table", tableName);
-        //发送数据至下游
-        collector.collect(result.toJSONString());
-
     }
 
     @Override
-    public TypeInformation<String> getProducedType() {
-        return TypeInformation.of(String.class);
+    public TypeInformation<JSONObject> getProducedType() {
+        return TypeInformation.of(JSONObject.class);
     }
+
 }

@@ -121,6 +121,13 @@
             <version>42.2.5</version>
         </dependency>
 
+<!--        flink_es-->
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
     </dependencies>
 
 </project>
