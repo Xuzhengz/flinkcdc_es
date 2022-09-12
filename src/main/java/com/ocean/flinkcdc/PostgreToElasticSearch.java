@@ -12,10 +12,18 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
 import java.sql.Savepoint;
+import java.util.Properties;
 
 /**
  * @author 徐正洲
  * @date 2022/9/12-16:58
+ *
+ *
+ * flink cdc 实现读取postgre变化数据写入es
+ *
+ * 1、自定义cdc数据源
+ * 2、分流--create，update，delete
+ * 3、实时增、删、改es
  */
 public class PostgreToElasticSearch {
     public static void main(String[] args) throws Exception {
@@ -34,6 +42,11 @@ public class PostgreToElasticSearch {
 //        设置访问 HDFS 的用户名
         System.setProperty("HADOOP_USER_NAME", "root");
 
+//        自定义cdc读取postgre策略
+        Properties properties = new Properties();
+        properties.setProperty("snapshot.mode", "never");
+        properties.setProperty("debezium.slot.drop.on.stop", "true");
+        properties.setProperty("include.schema.changes", "true");
 
 //        自定义cdc数据源
         SourceFunction<String> sourceFunction = PostgreSQLSource.<String>builder()
@@ -47,7 +60,10 @@ public class PostgreToElasticSearch {
                 .slotName("flink_cdc_postgre")
                 .decodingPluginName("pgoutput")
                 .deserializer(new MyJsonDebeziumDeserializationSchema()) // converts SourceRecord to JSON String
+                .debeziumProperties(properties)
                 .build();
+
+
 
 
 
