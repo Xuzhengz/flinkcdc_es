@@ -81,6 +81,7 @@ public class PostgreToElasticSearch {
             }
         });
 
+
         SingleOutputStreamOperator<JSONObject> deleteStream = pgStream.filter(new FilterFunction<JSONObject>() {
             @Override
             public boolean filter(JSONObject jsonObject) throws Exception {
