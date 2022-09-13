@@ -14,24 +14,18 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 
-import java.io.InputStream;
-import java.util.Properties;
 
 /**
  * @author 徐正洲
  * @create 2022-09-13 11:53
  */
 public class MyEsCreateOrUpdateSink extends RichSinkFunction<AddressPoJo> {
-     static RestHighLevelClient esClient;
+    static RestHighLevelClient esClient;
+
     @Override
     public void open(Configuration parameters) throws Exception {
         //创建客户端对象
-        InputStream systemResourceAsStream = ClassLoader.getSystemResourceAsStream("app.properties");
-        Properties properties = new Properties();
-        properties.load(systemResourceAsStream);
-        String eshostname = properties.getProperty("eshostname");
-        int esport = Integer.parseInt(properties.getProperty("esport"));
-        esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(eshostname, esport)));
+        esClient = new RestHighLevelClient(RestClient.builder(new HttpHost("172.16.8.181", 9200)));
     }
 
     @Override
@@ -54,15 +48,11 @@ public class MyEsCreateOrUpdateSink extends RichSinkFunction<AddressPoJo> {
 
     public static class MyEsDeleteSink extends RichSinkFunction<JSONObject> {
         static RestHighLevelClient esClient;
+
         @Override
         public void open(Configuration parameters) throws Exception {
             //创建客户端对象
-            InputStream systemResourceAsStream = ClassLoader.getSystemResourceAsStream("app.properties");
-            Properties properties = new Properties();
-            properties.load(systemResourceAsStream);
-            String eshostname = properties.getProperty("eshostname");
-            int esport = Integer.parseInt(properties.getProperty("esport"));
-            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(eshostname, esport)));
+            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost("172.16.8.181", 9200)));
         }
 
         @Override

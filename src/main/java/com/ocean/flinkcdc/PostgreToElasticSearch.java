@@ -2,33 +2,15 @@ package com.ocean.flinkcdc;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
-import com.ververica.cdc.debezium.JsonDebeziumDeserializationSchema;
-import org.apache.flink.api.common.functions.FilterFunction;
-import org.apache.flink.api.common.functions.RuntimeContext;
-import org.apache.flink.api.common.restartstrategy.RestartStrategies;
-import org.apache.flink.runtime.checkpoint.Checkpoint;
-import org.apache.flink.runtime.state.filesystem.FsStateBackend;
-import org.apache.flink.streaming.api.CheckpointingMode;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
-import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
-import org.apache.flink.streaming.connectors.elasticsearch.ElasticsearchSinkFunction;
-import org.apache.flink.streaming.connectors.elasticsearch.RequestIndexer;
-import org.apache.flink.streaming.connectors.elasticsearch6.ElasticsearchSink;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.client.Requests;
-import org.elasticsearch.common.xcontent.XContentType;
-
-import java.io.InputStream;
-import java.net.URL;
-import java.sql.Savepoint;
 import java.util.*;
 
 /**
@@ -70,31 +52,16 @@ public class PostgreToElasticSearch {
         /**
          1、 自定义cdc数据源
          */
-
-//        使用反射获取配置信息,可动态配置
-        InputStream systemResourceAsStream = ClassLoader.getSystemResourceAsStream("app.properties");
-        properties.load(systemResourceAsStream);
-        String pgHostname = properties.getProperty("hostname");
-        int pgPort = Integer.parseInt(properties.getProperty("port"));
-        String pgDatabase = properties.getProperty("database");
-        String pgSchemaList = properties.getProperty("schemaList");
-        String pgTableList = properties.getProperty("tableList");
-        String pgUsername = properties.getProperty("username");
-        String pgPassword = properties.getProperty("password");
-        String pgSlotName = properties.getProperty("slotName");
-        String pgDecodingPlugInName = properties.getProperty("decodingPlugInName");
-
-
         SourceFunction<JSONObject> sourceFunction = PostgreSQLSource.<JSONObject>builder()
-                .hostname(pgHostname)
-                .port(pgPort)
-                .database(pgDatabase)
-                .schemaList(pgSchemaList)
-                .tableList(pgTableList)
-                .username(pgUsername)
-                .password(pgPassword)
-                .slotName(pgSlotName)
-                .decodingPluginName(pgDecodingPlugInName)
+                .hostname("172.16.8.222")
+                .port(5432)
+                .database("dzsj")
+                .schemaList("bzdz")
+                .tableList("bzdz.bzdz_all")
+                .username("postgres")
+                .password("1Qaz2wsx")
+                .slotName("flink_cdc_postgre")
+                .decodingPluginName("pgoutput")
                 .deserializer(new MyJsonDebeziumDeserializationSchema())
                 .debeziumProperties(properties)
                 .build();
@@ -133,31 +100,39 @@ public class PostgreToElasticSearch {
          3、根据不同流操作写入es
          */
         //增加或修改数据
-        SingleOutputStreamOperator<AddressPoJo> createData = createOrUpdateStream.map(line -> {
-            JSONObject data = (JSONObject) line.get("data");
-            AddressPoJo addressPoJo = new AddressPoJo();
-            addressPoJo.setMphid(String.valueOf(data.get("mphid")));
-            addressPoJo.setTitle(String.valueOf(data.get("title")));
-            addressPoJo.setAddress(String.valueOf(data.get("address")));
-            addressPoJo.setXzqh(String.valueOf(data.get("xzqh")));
-            addressPoJo.setPcs(String.valueOf(data.get("pcs")));
-            addressPoJo.setGd_jd(String.valueOf(data.get("gd_jd")));
-            addressPoJo.setGd_wd(String.valueOf(data.get("gd_wd")));
-            addressPoJo.setSource(String.valueOf(data.get("source")));
-            addressPoJo.setKid(String.valueOf(data.get("kid")));
-            addressPoJo.setLocation_id(String.valueOf(data.get("location_id")));
-            return addressPoJo;
+        SingleOutputStreamOperator<AddressPoJo> createData = createOrUpdateStream.map(new MapFunction<JSONObject, AddressPoJo>() {
+            @Override
+            public AddressPoJo map(JSONObject jsonObject) throws Exception {
+                JSONObject data = (JSONObject) jsonObject.get("data");
+                AddressPoJo addressPoJo = new AddressPoJo();
+                addressPoJo.setMphid(String.valueOf(data.get("mphid")));
+                addressPoJo.setTitle(String.valueOf(data.get("title")));
+                addressPoJo.setAddress(String.valueOf(data.get("address")));
+                addressPoJo.setXzqh(String.valueOf(data.get("xzqh")));
+                addressPoJo.setPcs(String.valueOf(data.get("pcs")));
+                addressPoJo.setGd_jd(String.valueOf(data.get("gd_jd")));
+                addressPoJo.setGd_wd(String.valueOf(data.get("gd_wd")));
+                addressPoJo.setSource(String.valueOf(data.get("source")));
+                addressPoJo.setKid(String.valueOf(data.get("kid")));
+                addressPoJo.setLocation_id(String.valueOf(data.get("location_id")));
+                return addressPoJo;
+            }
         });
 
+
         //删除数据
-        SingleOutputStreamOperator<JSONObject> deleteData = deleteStream.map(data -> {
-            JSONObject delData = (JSONObject) data.get("data");
-            return delData;
+        SingleOutputStreamOperator<JSONObject> deleteData = deleteStream.map(new MapFunction<JSONObject, JSONObject>() {
+            @Override
+            public JSONObject map(JSONObject jsonObject) throws Exception {
+                JSONObject data = (JSONObject) jsonObject.get("data");
+                return data;
+            }
         });
+
         createData.addSink(new MyEsCreateOrUpdateSink());
         deleteData.addSink(new MyEsCreateOrUpdateSink.MyEsDeleteSink());
 
-        env.execute();
+        env.execute("pg12-es6-job：");
 
     }
 
