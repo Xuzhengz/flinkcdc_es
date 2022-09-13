@@ -25,7 +25,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>com.xzz.chapter05.MapTest</mainClass>
+                  <mainClass>com.ocean.flinkcdc.PostgreToElasticSearch</mainClass>
                 </transformer>
                 <transformer>
                   <resource>reference.conf</resource>
