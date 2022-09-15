@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.http.HttpHost;
+import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
 import org.elasticsearch.action.delete.DeleteRequest;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.index.IndexRequest;
@@ -32,13 +34,17 @@ public class MyEsCreateOrUpdateSink extends RichSinkFunction<AddressPoJo> {
     public void invoke(AddressPoJo value, Context context) throws Exception {
 //         创建文档
         IndexRequest request = new IndexRequest();
-        request.index("user").type("address_test").id(value.getLocation_id());
+        request.index("od_address_db").type("address_test").id(value.getLocation_id());
 //        插入数据必须转换为json
         ObjectMapper mapper = new ObjectMapper();
         String userJson = mapper.writeValueAsString(value);
-        request.source(userJson, XContentType.JSON);
-        IndexResponse response = esClient.index(request, RequestOptions.DEFAULT);
-        System.out.println("操作类型：" + response.getResult() + "," + "id：" + value.getLocation_id());
+
+        BulkRequest bulkRequest = new BulkRequest();
+        bulkRequest.add(request.source(userJson,XContentType.JSON));
+
+        BulkResponse resultResponse = esClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+        System.out.println(resultResponse.getTook());
+        System.out.println(resultResponse.getItems());
     }
 
     @Override
@@ -57,7 +63,7 @@ public class MyEsCreateOrUpdateSink extends RichSinkFunction<AddressPoJo> {
 
         @Override
         public void invoke(JSONObject value, Context context) throws Exception {
-            DeleteRequest deleteRequest = new DeleteRequest("user", "address_test", String.valueOf(value.get("location_id")));
+            DeleteRequest deleteRequest = new DeleteRequest("od_address_db", "address_test", String.valueOf(value.get("location_id")));
             DeleteResponse deleteResult = esClient.delete(deleteRequest, RequestOptions.DEFAULT);
             System.out.println("操作类型：" + deleteResult.getResult() + "  删除数据id为：" + value.get("location_id"));
         }

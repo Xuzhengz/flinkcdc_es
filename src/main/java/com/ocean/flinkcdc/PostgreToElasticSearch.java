@@ -60,7 +60,7 @@ public class PostgreToElasticSearch {
                 .tableList("bzdz.bzdz_all")
                 .username("postgres")
                 .password("1Qaz2wsx")
-                .slotName("flink_cdc_postgre")
+                .slotName("flink_cdc_postgre2")
                 .decodingPluginName("pgoutput")
                 .deserializer(new MyJsonDebeziumDeserializationSchema())
                 .debeziumProperties(properties)
