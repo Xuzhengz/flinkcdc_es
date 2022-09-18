@@ -136,8 +136,8 @@ public class PostgreToElasticSearch {
 
         createOrDate.print("解密数据：");
 
-        createOrDate.addSink(new MyEsCreateOrUpdateSink());
-        deleteData.addSink(new MyEsCreateOrUpdateSink.MyEsDeleteSink());
+        createOrDate.addSink(new MyEsSink());
+        deleteData.addSink(new MyEsSink.MyEsDeleteSink());
 
         env.execute("pg12-es6-job：");
 

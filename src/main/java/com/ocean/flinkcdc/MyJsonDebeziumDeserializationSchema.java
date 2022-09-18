@@ -13,6 +13,8 @@ import org.apache.kafka.connect.source.SourceRecord;
 /**
  * @author 徐正洲
  * @date 2022/9/12-17:25
+ *
+ * 自定义cdc读取的数据序列化格式
  */
 public class MyJsonDebeziumDeserializationSchema implements DebeziumDeserializationSchema<JSONObject> {
     @Override

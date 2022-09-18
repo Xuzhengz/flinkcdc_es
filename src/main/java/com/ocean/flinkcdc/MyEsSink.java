@@ -20,8 +20,10 @@ import org.elasticsearch.common.xcontent.XContentType;
 /**
  * @author 徐正洲
  * @create 2022-09-13 11:53
+ * <p>
+ * 写或更新es自定义的sink
  */
-public class MyEsCreateOrUpdateSink extends RichSinkFunction<JSONObject> {
+public class MyEsSink extends RichSinkFunction<JSONObject> {
     static RestHighLevelClient esClient;
 
     @Override
@@ -44,9 +46,18 @@ public class MyEsCreateOrUpdateSink extends RichSinkFunction<JSONObject> {
 
     @Override
     public void close() throws Exception {
-        esClient.close();
+        if (esClient != null) {
+            try {
+                esClient.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
+    /**
+     * 自定义删除es的sink
+     */
     public static class MyEsDeleteSink extends RichSinkFunction<JSONObject> {
         static RestHighLevelClient esClient;
 
@@ -65,7 +76,14 @@ public class MyEsCreateOrUpdateSink extends RichSinkFunction<JSONObject> {
 
         @Override
         public void close() throws Exception {
-            esClient.close();
+            if (esClient != null) {
+                try {
+                    esClient.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
         }
     }
 }
