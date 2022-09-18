@@ -46,7 +46,6 @@ public class PostgreToElasticSearch {
         properties.setProperty("debezium.slot.drop.on.stop", "true");
         properties.setProperty("include.schema.changes", "true");
 
-
         /**
          1、 自定义cdc数据源
          */
