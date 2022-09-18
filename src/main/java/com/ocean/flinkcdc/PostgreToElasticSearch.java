@@ -43,8 +43,6 @@ public class PostgreToElasticSearch {
 
 //        自定义cdc读取postgre策略
         Properties properties = new Properties();
-
-//        properties.setProperty("snapshot.mode", "never");
         properties.setProperty("debezium.slot.drop.on.stop", "true");
         properties.setProperty("include.schema.changes", "true");
 
@@ -60,14 +58,13 @@ public class PostgreToElasticSearch {
                 .tableList("bzdz.bzdz_all")
                 .username("postgres")
                 .password("1Qaz2wsx")
-                .slotName("flink_cdc_postgre2")
+                .slotName("flink_cdc_pg_ocean")
                 .decodingPluginName("pgoutput")
                 .deserializer(new MyJsonDebeziumDeserializationSchema())
                 .debeziumProperties(properties)
                 .build();
 
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction);
-
 
         /**
          2、分流--测输出流
@@ -77,8 +74,6 @@ public class PostgreToElasticSearch {
         OutputTag<JSONObject> delete = new OutputTag<JSONObject>("delete") {
         };
 
-
-//        主流--增加数据
         SingleOutputStreamOperator<JSONObject> mainStream = pgStream.process(new ProcessFunction<JSONObject, JSONObject>() {
             @Override
             public void processElement(JSONObject jsonObject, Context context, Collector<JSONObject> collector) throws Exception {
@@ -100,22 +95,22 @@ public class PostgreToElasticSearch {
          3、根据不同流操作写入es
          */
         //增加或修改数据
-        SingleOutputStreamOperator<AddressPoJo> createData = createOrUpdateStream.map(new MapFunction<JSONObject, AddressPoJo>() {
+        SingleOutputStreamOperator<JSONObject> createOrDate = createOrUpdateStream.map(new MapFunction<JSONObject, JSONObject>() {
             @Override
-            public AddressPoJo map(JSONObject jsonObject) throws Exception {
+            public JSONObject map(JSONObject jsonObject) throws Exception {
                 JSONObject data = (JSONObject) jsonObject.get("data");
-                AddressPoJo addressPoJo = new AddressPoJo();
-                addressPoJo.setMphid(String.valueOf(data.get("mphid")));
-                addressPoJo.setTitle(String.valueOf(data.get("title")));
-                addressPoJo.setAddress(String.valueOf(data.get("address")));
-                addressPoJo.setXzqh(String.valueOf(data.get("xzqh")));
-                addressPoJo.setPcs(String.valueOf(data.get("pcs")));
-                addressPoJo.setGd_jd(String.valueOf(data.get("gd_jd")));
-                addressPoJo.setGd_wd(String.valueOf(data.get("gd_wd")));
-                addressPoJo.setSource(String.valueOf(data.get("source")));
-                addressPoJo.setKid(String.valueOf(data.get("kid")));
-                addressPoJo.setLocation_id(String.valueOf(data.get("location_id")));
-                return addressPoJo;
+                //重新给JSON赋值解密数据
+                data.put("mphid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("mphid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("title",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("title")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("address",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("xzqh",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("xzqh")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("pcs",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("pcs")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("gd_jd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_jd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("gd_wd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_wd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("source",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("source")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("kid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("kid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("location_id",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("location_id")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                return data;
             }
         });
 
@@ -125,11 +120,24 @@ public class PostgreToElasticSearch {
             @Override
             public JSONObject map(JSONObject jsonObject) throws Exception {
                 JSONObject data = (JSONObject) jsonObject.get("data");
+                //重新给JSON赋值解密数据
+                data.put("mphid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("mphid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("title",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("title")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("address",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("xzqh",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("xzqh")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("pcs",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("pcs")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("gd_jd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_jd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("gd_wd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_wd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("source",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("source")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("kid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("kid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                data.put("location_id",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("location_id")), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 return data;
             }
         });
 
-        createData.addSink(new MyEsCreateOrUpdateSink());
+        createOrDate.print("解密数据：");
+
+        createOrDate.addSink(new MyEsCreateOrUpdateSink());
         deleteData.addSink(new MyEsCreateOrUpdateSink.MyEsDeleteSink());
 
         env.execute("pg12-es6-job：");

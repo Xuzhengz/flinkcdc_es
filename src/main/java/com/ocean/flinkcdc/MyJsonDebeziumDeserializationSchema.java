@@ -38,7 +38,6 @@ public class MyJsonDebeziumDeserializationSchema implements DebeziumDeserializat
             JSONObject afterResult = new JSONObject();
             afterResult.put("operation", operation.toString().toLowerCase());
             afterResult.put("data", afterData);
-            System.out.println(afterResult);
             //发送数据至下游
             collector.collect(afterResult);
         } else {
@@ -53,7 +52,6 @@ public class MyJsonDebeziumDeserializationSchema implements DebeziumDeserializat
             JSONObject beforeResult = new JSONObject();
             beforeResult.put("operation", operation.toString().toLowerCase());
             beforeResult.put("data", beforeData);
-            System.out.println(beforeResult);
             collector.collect(beforeResult);
         }
     }
