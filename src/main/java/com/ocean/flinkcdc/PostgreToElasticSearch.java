@@ -40,7 +40,6 @@ public class PostgreToElasticSearch {
 //        env.setStateBackend(new FsStateBackend("hdfs://172.16.11.151:8020/flinkCDC"));
 ////        设置访问 HDFS 的用户名
 //        System.setProperty("HADOOP_USER_NAME", "root");
-
 //        自定义cdc读取postgre策略
         Properties properties = new Properties();
         properties.setProperty("debezium.slot.drop.on.stop", "true");
