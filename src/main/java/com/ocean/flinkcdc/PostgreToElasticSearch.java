@@ -1,5 +1,6 @@
 package com.ocean.flinkcdc;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -11,6 +12,7 @@ import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
+
 import java.util.*;
 
 /**
@@ -27,7 +29,7 @@ import java.util.*;
 public class PostgreToElasticSearch {
     public static void main(String[] args) throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setParallelism(1);
+        env.setParallelism(3);
 ////        开启 Checkpoint, 每隔 5 秒钟做一次 CK
 //        env.enableCheckpointing(60000L);
 ////        指定 CK 的一致性语义
@@ -49,20 +51,21 @@ public class PostgreToElasticSearch {
          1、 自定义cdc数据源
          */
         SourceFunction<JSONObject> sourceFunction = PostgreSQLSource.<JSONObject>builder()
-                .hostname("172.16.8.222")
+                .hostname("172.16.8.160")
                 .port(5432)
                 .database("dzsj")
                 .schemaList("bzdz")
-                .tableList("bzdz.bzdz_all")
+                .tableList("bzdz.bzdz_all_cdc")
                 .username("postgres")
-                .password("1Qaz2wsx")
-                .slotName("flink_cdc_pg_ocean")
+                .password("1qaz@WSX")
+                .slotName("flink_cdc_pg_es")
                 .decodingPluginName("pgoutput")
                 .deserializer(new MyJsonDebeziumDeserializationSchema())
                 .debeziumProperties(properties)
                 .build();
 
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction);
+
 
         /**
          2、分流--测输出流
@@ -98,17 +101,21 @@ public class PostgreToElasticSearch {
             public JSONObject map(JSONObject jsonObject) throws Exception {
                 JSONObject data = (JSONObject) jsonObject.get("data");
                 //重新给JSON赋值解密数据
-                data.put("mphid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("mphid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("title",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("title")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("address",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("xzqh",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("xzqh")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("pcs",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("pcs")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("gd_jd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_jd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("gd_wd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_wd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("source",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("source")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("kid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("kid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("location_id",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("location_id")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                return data;
+                JSONObject createOrUpdateJson = new JSONObject();
+                JSONObject geoJson = new JSONObject();
+                geoJson.put("lat", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_wd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                geoJson.put("lon", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_jd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("title", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("title")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("address", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("xzqh", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("xzqh")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("pcs", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("pcs")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("coordinate02",geoJson);
+                createOrUpdateJson.put("source", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("source")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("location_id", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("location_id")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("jdname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jdname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("jwname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jwname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                createOrUpdateJson.put("address_type", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address_type")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                return createOrUpdateJson;
             }
         });
 
@@ -119,17 +126,21 @@ public class PostgreToElasticSearch {
             public JSONObject map(JSONObject jsonObject) throws Exception {
                 JSONObject data = (JSONObject) jsonObject.get("data");
                 //重新给JSON赋值解密数据
-                data.put("mphid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("mphid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("title",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("title")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("address",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("xzqh",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("xzqh")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("pcs",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("pcs")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("gd_jd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_jd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("gd_wd",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_wd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("source",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("source")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("kid",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("kid")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                data.put("location_id",PKCS5PaddingUtils.decrypt(String.valueOf(data.get("location_id")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                return data;
+                JSONObject deleteJson = new JSONObject();
+                JSONObject geoJson = new JSONObject();
+                geoJson.put("lat", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_wd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                geoJson.put("lon", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_jd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("title", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("title")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("address", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("xzqh", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("xzqh")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("pcs", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("pcs")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("coordinate02",geoJson);
+                deleteJson.put("source", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("source")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("location_id", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("location_id")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("jdname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jdname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("jwname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jwname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                deleteJson.put("address_type", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address_type")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                return deleteJson;
             }
         });
 

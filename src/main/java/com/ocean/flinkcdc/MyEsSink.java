@@ -34,14 +34,15 @@ public class MyEsSink extends RichSinkFunction<JSONObject> {
 
     @Override
     public void invoke(JSONObject value, Context context) throws Exception {
-//        创建文档
-        IndexRequest request = new IndexRequest();
-        request.index("user").type("address_test").id(String.valueOf(value.get("location_id")));
-//        插入数据必须转换为json
-        request.source(value, XContentType.JSON);
-        IndexResponse response = esClient.index(request, RequestOptions.DEFAULT);
-        System.out.println("插入数据是否成功：" + response.getResult());
-
+//        批量新增文档
+        BulkRequest request = new BulkRequest();
+        request.add(new IndexRequest().index("sh_address_db_cdc").type("sh_dzs").id(String.valueOf(value.get("location_id"))).source(value));
+        BulkResponse response = esClient.bulk(request, RequestOptions.DEFAULT);
+        if (response.hasFailures() == false) {
+            System.out.println("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + value.get("location_id"));
+        } else {
+            System.out.println(response.buildFailureMessage());
+        }
     }
 
     @Override
@@ -69,7 +70,7 @@ public class MyEsSink extends RichSinkFunction<JSONObject> {
 
         @Override
         public void invoke(JSONObject value, Context context) throws Exception {
-            DeleteRequest deleteRequest = new DeleteRequest("user", "address_test", String.valueOf(value.get("location_id")));
+            DeleteRequest deleteRequest = new DeleteRequest("sh_address_db_cdc", "sh_dzs", String.valueOf(value.get("location_id")));
             DeleteResponse deleteResult = esClient.delete(deleteRequest, RequestOptions.DEFAULT);
             System.out.println("操作类型：" + deleteResult.getResult() + "  删除数据id为：" + value.get("location_id"));
         }
