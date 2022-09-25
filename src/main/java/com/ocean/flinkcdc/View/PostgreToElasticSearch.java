@@ -1,7 +1,9 @@
-package com.ocean.flinkcdc;
+package com.ocean.flinkcdc.View;
 
-import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.ocean.flinkcdc.sink.MyEsSink;
+import com.ocean.flinkcdc.source.MyJsonDebeziumDeserializationSchema;
+import com.ocean.flinkcdc.utils.PKCS5PaddingUtils;
 import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -50,14 +52,15 @@ public class PostgreToElasticSearch {
         /**
          1、 自定义cdc数据源
          */
+
         SourceFunction<JSONObject> sourceFunction = PostgreSQLSource.<JSONObject>builder()
-                .hostname("172.16.8.160")
+                .hostname("172.16.8.222")
                 .port(5432)
                 .database("dzsj")
                 .schemaList("bzdz")
-                .tableList("bzdz.bzdz_all_cdc")
+                .tableList("bzdz.bzdz_all")
                 .username("postgres")
-                .password("1qaz@WSX")
+                .password("1Qaz2wsx")
                 .slotName("flink_cdc_pg_es")
                 .decodingPluginName("pgoutput")
                 .deserializer(new MyJsonDebeziumDeserializationSchema())
@@ -65,7 +68,6 @@ public class PostgreToElasticSearch {
                 .build();
 
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction);
-
 
         /**
          2、分流--测输出流
@@ -146,8 +148,8 @@ public class PostgreToElasticSearch {
 
         createOrDate.print("解密数据：");
 
-        createOrDate.addSink(new MyEsSink());
-        deleteData.addSink(new MyEsSink.MyEsDeleteSink());
+//        createOrDate.addSink(new MyEsSink());
+//        deleteData.addSink(new MyEsSink.MyEsDeleteSink());
 
         env.execute("pg12-es6-job：");
 

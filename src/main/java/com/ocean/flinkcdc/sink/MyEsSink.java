@@ -1,4 +1,4 @@
-package com.ocean.flinkcdc;
+package com.ocean.flinkcdc.sink;
 
 import com.alibaba.fastjson.JSONObject;
 import com.fasterxml.jackson.databind.ObjectMapper;

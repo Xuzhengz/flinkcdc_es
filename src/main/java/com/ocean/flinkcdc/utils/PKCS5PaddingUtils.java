@@ -1,4 +1,4 @@
-package com.ocean.flinkcdc;
+package com.ocean.flinkcdc.utils;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.pqc.math.linearalgebra.ByteUtils;
