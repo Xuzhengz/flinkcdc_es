@@ -29,7 +29,6 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
     public static RestHighLevelClient esClient;
     public static final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
     static Properties properties;
-
     /**
      * 定义加密的es客户端
      */
