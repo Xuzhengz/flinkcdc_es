@@ -1,7 +1,6 @@
 package com.ocean.flinkcdc.View;
 
 import com.alibaba.fastjson.JSONObject;
-import com.ocean.flinkcdc.constants.PropertiesContants;
 import com.ocean.flinkcdc.sink.ElasticsearchSink6;
 import com.ocean.flinkcdc.source.MyJsonDebeziumDeserializationSchema;
 import com.ocean.flinkcdc.utils.PKCS5PaddingUtils;
@@ -12,6 +11,9 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
+import java.io.InputStream;
+import java.util.Properties;
+
 /**
  * @author 徐正洲
  * @date 2022/9/25-14:11
@@ -19,23 +21,32 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
  * Flink写入es
  */
 public class PostgreToEs6Streaming {
-    public static void main(String[] args) throws Exception{
+    public static void main(String[] args) throws Exception {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        /**
+        获取自定义数据源配置
+        */
+        Properties properties = new Properties();
+        InputStream systemResourceAsStream = PostgreToEs6Streaming.class.getClassLoader().getResourceAsStream("app.properties");
+        properties.load(systemResourceAsStream);
+        properties.setProperty("debezium.snapshot.mode", "never");
+        properties.setProperty("debezium.slot.drop.on.stop", "true");
+        properties.setProperty("include.schema.changes", "true");
         /**
          * 1、Flink_CDC_POSTGRESQL 实时加密数据源,source只允许并行度为“1”。
          */
         SourceFunction<JSONObject> sourceFunction = PostgreSQLSource.<JSONObject>builder()
-                .hostname(PropertiesContants.PGHOSTNAME)
-                .port(PropertiesContants.PGPORT)
-                .database(PropertiesContants.PGDATABASE)
-                .schemaList(PropertiesContants.PGSCHEMALIST)
-                .tableList(PropertiesContants.PGTABLELIST)
-                .username(PropertiesContants.PGUSERNAME)
-                .password(PropertiesContants.PGPASSWORD)
-                .slotName("flink_cdc_pg_es")
-                .decodingPluginName("pgoutput")
+                .hostname(properties.getProperty("pg_hostname"))
+                .port(Integer.parseInt(properties.getProperty("pg_port")))
+                .database(properties.getProperty("pg_database"))
+                .schemaList(properties.getProperty("pg_schemaList"))
+                .tableList(properties.getProperty("pg_tableList"))
+                .username(properties.getProperty("pg_username"))
+                .password(properties.getProperty("pg_password"))
+                .slotName(properties.getProperty("pg_slotname"))
+                .decodingPluginName(properties.getProperty("decodingPluginName"))
                 .deserializer(new MyJsonDebeziumDeserializationSchema())
-                .debeziumProperties(PropertiesContants.properties)
+                .debeziumProperties(properties)
                 .build();
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction).setParallelism(1);
         /**
@@ -62,7 +73,7 @@ public class PostgreToEs6Streaming {
                 dataJson.put("jdname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jdname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 dataJson.put("jwname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jwname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 dataJson.put("address_type", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address_type")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                jsonObject.put("filterJson",dataJson);
+                jsonObject.put("filterJson", dataJson);
                 jsonObject.remove("data");
                 return jsonObject;
             }
