@@ -77,7 +77,6 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
             System.out.println("操作类型：" + deleteResult.getResult() +
                     "  删除数据id为：" + value.getJSONObject("filterJson").getString("location_id"));
         }
-
     }
 
     /**
