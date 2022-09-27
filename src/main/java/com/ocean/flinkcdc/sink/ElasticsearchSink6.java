@@ -20,7 +20,6 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import java.io.InputStream;
 import java.util.Properties;
-
 /**
  * @author 徐正洲
  * @date 2022/9/25-15:17
