@@ -1,10 +1,8 @@
 package com.ocean.flinkcdc.sink;
 
 import com.alibaba.fastjson.JSONObject;
-import com.ocean.flinkcdc.constants.PropertiesContants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
-import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -21,6 +19,9 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 
+import java.io.InputStream;
+import java.util.Properties;
+
 /**
  * @author 徐正洲
  * @date 2022/9/25-15:17
@@ -29,15 +30,20 @@ import org.elasticsearch.client.RestHighLevelClient;
 public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
     public static RestHighLevelClient esClient;
     public static final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-
+    static Properties properties;
 
     /**
      * 定义加密的es客户端
      */
     @Override
     public void open(Configuration parameters) throws Exception {
-        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(PropertiesContants.ESUSERNAME,PropertiesContants.ESPASSWORD));  //es账号密码
-        esClient =new RestHighLevelClient(RestClient.builder(new HttpHost(PropertiesContants.ESHOSTNAME,PropertiesContants.ESPORT))
+        ElasticsearchSink6 elasticsearchSink6 = new ElasticsearchSink6();
+        properties = new Properties();
+        InputStream systemResourceAsStream = elasticsearchSink6.getClass().getClassLoader().getResourceAsStream("app.properties");
+        properties.load(systemResourceAsStream);
+        System.out.println(systemResourceAsStream);
+        credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(properties.getProperty("es_username"), properties.getProperty("es_password")));  //es账号密码
+        esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(properties.getProperty("es_hostname"), Integer.parseInt(properties.getProperty("es_port"))))
                 .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
                     public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
                         httpClientBuilder.disableAuthCaching();
@@ -52,12 +58,12 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
      */
     @Override
     public void invoke(JSONObject value, Context context) throws Exception {
-        String  operation = String.valueOf(value.get("operation"));
-        if ("create".equals(operation)||"update".equals(operation)){
+        String operation = String.valueOf(value.get("operation"));
+        if ("create".equals(operation) || "update".equals(operation)) {
             BulkRequest request = new BulkRequest();
             request.add(new IndexRequest().
-                    index(PropertiesContants.ESINDEX)
-                    .type(PropertiesContants.ESTYPE)
+                    index(properties.getProperty("es_index"))
+                    .type(properties.getProperty("es_type"))
                     .id(value.getJSONObject("filterJson")
                             .getString("location_id"))
                     .source(value.getJSONObject("filterJson"))
@@ -69,15 +75,14 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
                 System.out.println(response.buildFailureMessage());
             }
         } else if ("delete".equals(operation)) {
-            DeleteRequest deleteRequest = new DeleteRequest(PropertiesContants.ESINDEX,
-                    PropertiesContants.ESTYPE,
+            DeleteRequest deleteRequest = new DeleteRequest(properties.getProperty("es_index"),
+                    properties.getProperty("es_type"),
                     value.getJSONObject("filterJson").getString("location_id")
             );
             DeleteResponse deleteResult = esClient.delete(deleteRequest, RequestOptions.DEFAULT);
             System.out.println("操作类型：" + deleteResult.getResult() +
                     "  删除数据id为：" + value.getJSONObject("filterJson").getString("location_id"));
         }
-
     }
 
     /**
@@ -85,10 +90,10 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
      */
     @Override
     public void close() throws Exception {
-        if (esClient!=null){
+        if (esClient != null) {
             try {
                 esClient.close();
-            }catch (Exception e){
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
