@@ -38,6 +38,7 @@ public class PostgreToEs6Streaming {
                 .debeziumProperties(PropertiesContants.properties)
                 .build();
 
+
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction).setParallelism(1);
         /**
          * 2、无状态计算，解密操作
