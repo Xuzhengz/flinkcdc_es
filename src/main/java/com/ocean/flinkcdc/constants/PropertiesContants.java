@@ -16,18 +16,17 @@ import java.util.Properties;
  */
 public class PropertiesContants {
     public static Properties properties = new Properties();
-
+    public static InputStream systemResourceAsStream = PropertiesContants.class.getClassLoader().getSystemResourceAsStream("app.properties");
     static {
-        InputStream systemResourceAsStream = ClassLoader.getSystemResourceAsStream("app.properties");
         try {
             properties.load(systemResourceAsStream);
+            properties.setProperty("debezium.snapshot.mode", "never");
             properties.setProperty("debezium.slot.drop.on.stop", "true");
             properties.setProperty("include.schema.changes", "true");
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
     public static final String PGHOSTNAME = properties.getProperty("pg_hostname");
     public static final int PGPORT = Integer.parseInt(properties.getProperty("pg_port"));
     public static final String PGDATABASE = properties.getProperty("pg_database");
@@ -41,4 +40,6 @@ public class PropertiesContants {
     public static final String ESPASSWORD = properties.getProperty("es_password");
     public static final String ESINDEX = properties.getProperty("es_index");
     public static final String ESTYPE = properties.getProperty("es_type");
+
+
 }
