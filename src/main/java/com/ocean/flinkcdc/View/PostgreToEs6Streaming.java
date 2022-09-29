@@ -3,14 +3,21 @@ package com.ocean.flinkcdc.View;
 import com.alibaba.fastjson.JSONObject;
 import com.ocean.flinkcdc.sink.ElasticsearchSink6;
 import com.ocean.flinkcdc.source.MyJsonDebeziumDeserializationSchema;
+import com.ocean.flinkcdc.utils.CheckPointFileUtils;
 import com.ocean.flinkcdc.utils.PKCS5PaddingUtils;
 import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
+import org.apache.flink.runtime.state.storage.FileSystemCheckpointStorage;
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
+import java.io.File;
 import java.io.InputStream;
 import java.util.Properties;
 
@@ -22,22 +29,52 @@ import java.util.Properties;
  */
 public class PostgreToEs6Streaming {
     public static void main(String[] args) throws Exception {
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         /**
-        获取自定义数据源配置
-        */
+         * 设置配置信息
+         */
         Properties properties = new Properties();
-        InputStream systemResourceAsStream = PostgreToEs6Streaming.class.getClassLoader().getResourceAsStream("app.properties");
-        properties.load(systemResourceAsStream);
-        properties.setProperty("debezium.snapshot.mode", "never");
-        properties.setProperty("debezium.slot.drop.on.stop", "true");
-        properties.setProperty("include.schema.changes", "true");
+        InputStream resourceAsStream = PostgreToEs6Streaming.class.getClassLoader().getResourceAsStream("app.properties");
+        properties.load(resourceAsStream);
+        properties.setProperty("debuzium.snapshot.mode","never");
+        /**
+         * 设置故障恢复策略
+         */
+        Configuration configuration = new Configuration();
+        File checkpoint_path = new File(properties.getProperty("checkpoint_path"));
+        String maxTimeFileName = CheckPointFileUtils.getMaxTimeFileName(checkpoint_path);
+
+        if (maxTimeFileName != null && !"".equalsIgnoreCase(maxTimeFileName.trim())) {
+            configuration.setString("execution.savepoint.path", maxTimeFileName);
+        }
+
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(configuration);
+        env.setParallelism(1);
+
+//        设置状态后端
+        env.setStateBackend(new EmbeddedRocksDBStateBackend());
+        // 启用 checkpoint,设置触发间隔（两次执行开始时间间隔）
+        env.enableCheckpointing(10000);
+//        模式支持EXACTLY_ONCE()/AT_LEAST_ONCE()
+        env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+//        存储位置，FileSystemCheckpointStorage(文件存储)
+        env.getCheckpointConfig().setCheckpointStorage(new FileSystemCheckpointStorage("file:///C:/Users/xuzhengzhou/Desktop/checkpoint"));
+//        超时时间，checkpoint没在时间内完成则丢弃
+        env.getCheckpointConfig().setCheckpointTimeout(10000L);
+//        同时并发数量
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(2);
+//        最小间隔时间（前一次结束时间，与下一次开始时间间隔）
+        env.getCheckpointConfig().setMinPauseBetweenCheckpoints(1000);
+        //表示一旦Flink处理程序被cancel后，会保留Checkpoint数据，以便根据实际需要恢复到指定的Checkpoint
+        env.getCheckpointConfig().enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
+        //RETAIN_ON_CANCELLATION:表示一旦Flink处理程序被cancel后，会保留Checkpoint数据，以便根据实际需要恢复到指定的Checkpoint
+        //DELETE_ON_CANCELLATION: 表示一旦Flink处理程序被cancel后，会删除Checkpoint数据，只有job执行失败的时候才会保存checkpoint
+
         /**
          * 1、Flink_CDC_POSTGRESQL 实时加密数据源,source只允许并行度为“1”。
          */
         SourceFunction<JSONObject> sourceFunction = PostgreSQLSource.<JSONObject>builder()
                 .hostname(properties.getProperty("pg_hostname"))
-                .port(Integer.parseInt(properties.getProperty("pg_port")))
+                .port(Integer.valueOf(properties.getProperty("pg_port")))
                 .database(properties.getProperty("pg_database"))
                 .schemaList(properties.getProperty("pg_schemaList"))
                 .tableList(properties.getProperty("pg_tableList"))
