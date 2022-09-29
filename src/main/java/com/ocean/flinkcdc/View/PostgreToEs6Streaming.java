@@ -19,7 +19,6 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Properties;
-
 /**
  * @author 徐正洲
  * @date 2022/9/25-14:11
