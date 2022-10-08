@@ -19,25 +19,21 @@ public class CheckPointFileUtils {
     public static String getMaxTimeFileName(File file) {
         Long fileTime = 0L;
         File fileSubName = null;
-        String fileChildName = null;
+        String  fileChildName = null;
         File[] files = file.listFiles();
 
-        if (files != null) {
-            for (int i = 0; i < files.length; i++) {
-                if (fileTime < files[i].lastModified()) {
-                    fileTime = files[i].lastModified();
-                    fileSubName = files[i];
-                }
+        for (int i = 0; i < files.length; i++) {
+            if (fileTime < files[i].lastModified()) {
+                fileTime = files[i].lastModified();
+                fileSubName = files[i];
             }
-            File[] fileChildNames = fileSubName.listFiles();
-            for (int i = 0; i < fileChildNames.length; i++) {
-                if (fileChildNames[i].getName().startsWith("chk-")) {
-                    fileChildName = fileChildNames[i].toString();
-                }
-            }
-            return fileChildName;
-        } else {
-            return null;
         }
+        File[] fileChildNames = fileSubName.listFiles();
+        for (int i = 0; i < fileChildNames.length; i++) {
+            if (fileChildNames[i].getName().startsWith("chk-")){
+                fileChildName =  fileChildNames[i].toString();
+            }
+        }
+        return fileChildName;
     }
 }

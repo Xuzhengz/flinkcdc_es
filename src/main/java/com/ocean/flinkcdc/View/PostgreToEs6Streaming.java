@@ -44,26 +44,20 @@ public class PostgreToEs6Streaming {
         if (maxTimeFileName != null && !"".equalsIgnoreCase(maxTimeFileName.trim())) {
             configuration.setString("execution.savepoint.path", maxTimeFileName);
         }
+
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         env.setParallelism(1);
 
 //        设置状态后端
         env.setStateBackend(new EmbeddedRocksDBStateBackend());
         // 启用 checkpoint,设置触发间隔（两次执行开始时间间隔）
-        env.enableCheckpointing(5000);
+        env.enableCheckpointing(10000);
 //        模式支持EXACTLY_ONCE()/AT_LEAST_ONCE()
         env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
-//        存储位置，FileSystemCheckpointStorage(windows文件存储)
-//        env.getCheckpointConfig().setCheckpointStorage(new FileSystemCheckpointStorage("file:///C:/Users/bigbi/Desktop/checkpoint"));
-
-//        存储位置，FileSystemCheckpointStorage(HDFS存储)
-        env.getCheckpointConfig().setCheckpointStorage(new FileSystemCheckpointStorage("hdfs://172.16.8.154:8020/flink/checkpoint"));
-
-//        存储位置，FileSystemCheckpointStorage(linux文件存储)
-//        env.getCheckpointConfig().setCheckpointStorage(new FileSystemCheckpointStorage("/ocean/flink/checkpoint"));
-
+//        存储位置，FileSystemCheckpointStorage(文件存储)
+        env.getCheckpointConfig().setCheckpointStorage(new FileSystemCheckpointStorage("file:///C:/Users/xuzhengzhou/Desktop/checkpoint"));
 //        超时时间，checkpoint没在时间内完成则丢弃
-        env.getCheckpointConfig().setCheckpointTimeout(3000L);
+        env.getCheckpointConfig().setCheckpointTimeout(10000L);
 //        同时并发数量
         env.getCheckpointConfig().setMaxConcurrentCheckpoints(2);
 //        最小间隔时间（前一次结束时间，与下一次开始时间间隔）
