@@ -38,7 +38,6 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
         properties = new Properties();
         InputStream systemResourceAsStream = elasticsearchSink6.getClass().getClassLoader().getResourceAsStream("app.properties");
         properties.load(systemResourceAsStream);
-        System.out.println(systemResourceAsStream);
         credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(properties.getProperty("es_username"), properties.getProperty("es_password")));  //es账号密码
         esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(properties.getProperty("es_hostname"), Integer.parseInt(properties.getProperty("es_port"))))
                 .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
