@@ -16,6 +16,7 @@ import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
+
 import java.io.File;
 import java.io.InputStream;
 import java.util.Properties;
@@ -44,8 +45,7 @@ public class PostgreToEs6Streaming {
         if (maxTimeFileName != null && !"".equalsIgnoreCase(maxTimeFileName.trim())) {
             configuration.setString("execution.savepoint.path", maxTimeFileName);
         }
-
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment(configuration);
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.setParallelism(1);
 
 //        设置状态后端
@@ -55,7 +55,7 @@ public class PostgreToEs6Streaming {
 //        模式支持EXACTLY_ONCE()/AT_LEAST_ONCE()
         env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
 //        存储位置，FileSystemCheckpointStorage(文件存储)
-        env.getCheckpointConfig().setCheckpointStorage(new FileSystemCheckpointStorage("file:///C:/Users/xuzhengzhou/Desktop/checkpoint"));
+        env.getCheckpointConfig().setCheckpointStorage(new FileSystemCheckpointStorage(checkpoint_path.toString()));
 //        超时时间，checkpoint没在时间内完成则丢弃
         env.getCheckpointConfig().setCheckpointTimeout(10000L);
 //        同时并发数量
@@ -84,6 +84,7 @@ public class PostgreToEs6Streaming {
                 .debeziumProperties(properties)
                 .build();
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction).setParallelism(1);
+
         /**
          * 2、无状态计算，解密操作
          */
@@ -112,14 +113,14 @@ public class PostgreToEs6Streaming {
                 jsonObject.remove("data");
                 return jsonObject;
             }
-        }).setParallelism(3);
+        }).setParallelism(5);
 
 
         /**
          * 自定义ElasticSearch6 Sink写入。
          */
 
-        PaddingStream.addSink(new ElasticsearchSink6()).setParallelism(3);
+        PaddingStream.addSink(new ElasticsearchSink6()).setParallelism(5);
 
 
         env.execute("Ocean_Postgre_To_ES6_Streaming");
