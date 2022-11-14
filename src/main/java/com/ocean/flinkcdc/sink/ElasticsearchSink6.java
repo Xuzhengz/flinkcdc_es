@@ -24,7 +24,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
@@ -38,9 +37,7 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
     public static final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
     static Properties properties;
     public static FileWriter fileWriter = null;
-    public static File dirtyFile = null;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchSink6.class);
-
 
     /**
      * 定义加密的es客户端
@@ -51,7 +48,8 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
         properties = new Properties();
         InputStream systemResourceAsStream = elasticsearchSink6.getClass().getClassLoader().getResourceAsStream("app.properties");
         properties.load(systemResourceAsStream);
-        if (properties.getProperty("auth").equals("enable")) {
+        String auth = properties.getProperty("auth");
+        if ("true".equals(auth)) {
             credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(properties.getProperty("es_username"), properties.getProperty("es_password")));  //es账号密码
             esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(properties.getProperty("es_hostname"), Integer.parseInt(properties.getProperty("es_port"))))
                     .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
@@ -59,17 +57,11 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
                             httpClientBuilder.disableAuthCaching();
                             return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
                         }
-                    })
-            );
+                    }));
         } else {
             esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(properties.getProperty("es_hostname"), Integer.parseInt(properties.getProperty("es_port")))));
         }
-
-        //创建脏数据输出文件流
-        String dirty_path = properties.getProperty("dirty_path");
-        dirtyFile = new File(dirty_path);
-//        2、创建输入输出流
-        fileWriter = new FileWriter(dirtyFile, true);
+        fileWriter = new FileWriter(new File(properties.getProperty("dirty_path")), true);
     }
 
     /**
@@ -91,12 +83,9 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
             if (response.hasFailures() == false) {
                 LOG.info("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + value.getJSONObject("filterJson").get("location_id"));
             } else {
-                try {
-                    LOG.error("同步失败，主键id：" + value.getJSONObject("filterJson").get("location_id"));
-                    fileWriter.write(DateFormatUtil.toDate(System.currentTimeMillis()) + "-->" + value + "\n");
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                LOG.error("同步失败，主键id：" + value.getJSONObject("filterJson").get("location_id"));
+                fileWriter.write(DateFormatUtil.toYmdHms(System.currentTimeMillis()) + "\t" + value.toJSONString() + "\n");
+                fileWriter.flush();
             }
         } else if ("delete".equals(operation)) {
             DeleteRequest deleteRequest = new DeleteRequest(properties.getProperty("es_index"),
