@@ -1,4 +1,4 @@
-package com.ocean.flinkcdc.sink;
+package com.ocean.flinkcdc.function;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ocean.flinkcdc.utils.DateFormatUtil;

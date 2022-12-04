@@ -1,11 +1,13 @@
-package com.ocean.flinkcdc.View;
+package com.ocean.flinkcdc.apps;
 
 import com.alibaba.fastjson.JSONObject;
-import com.ocean.flinkcdc.sink.ElasticsearchSink6;
-import com.ocean.flinkcdc.source.MyJsonDebeziumDeserializationSchema;
+import com.ocean.flinkcdc.function.ElasticsearchSink6;
+import com.ocean.flinkcdc.function.MyJsonDebeziumDeserializationSchema;
+import com.ocean.flinkcdc.function.PaddAsyncFunction;
 import com.ocean.flinkcdc.utils.PKCS5PaddingUtils;
 import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.streaming.api.datastream.AsyncDataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -13,19 +15,21 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
 import java.io.InputStream;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
 /**
  * @author 徐正洲
  * @date 2022/9/25-14:11
  * <p>
  * Flink写入es
  */
-public class PostgreToEs6Streaming {
+public class PostgreToEs6 {
     public static void main(String[] args) throws Exception {
         /**
          * 设置配置信息
          */
         Properties properties = new Properties();
-        InputStream resourceAsStream = PostgreToEs6Streaming.class.getClassLoader().getResourceAsStream("app.properties");
+        InputStream resourceAsStream = PostgreToEs6.class.getClassLoader().getResourceAsStream("app.properties");
         properties.load(resourceAsStream);
         properties.setProperty("debuzium.snapshot.mode","never");
         /**
@@ -78,13 +82,14 @@ public class PostgreToEs6Streaming {
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction).setParallelism(1);
 
         /**
-         * 2、无状态计算，解密操作
+         * 2、无状态异步多线程计算，解密操作
          */
+
+        SingleOutputStreamOperator<JSONObject> paddDs = AsyncDataStream.unorderedWait(pgStream, new PaddAsyncFunction<JSONObject>(), 100, TimeUnit.SECONDS);
 
         SingleOutputStreamOperator<JSONObject> paddingStream = pgStream.map(new MapFunction<JSONObject, JSONObject>() {
             @Override
             public JSONObject map(JSONObject jsonObject) throws Exception {
-                //
                 JSONObject data = (JSONObject) jsonObject.get("data");
                 //重新给JSON赋值解密数据和过滤字段
                 JSONObject dataJson = new JSONObject();
@@ -109,12 +114,15 @@ public class PostgreToEs6Streaming {
 
 
         /**
-         * 自定义ElasticSearch6 Sink写入。
+         * 3、自定义ElasticSearch6 Sink写入。
          */
 
         paddingStream.addSink(new ElasticsearchSink6()).setParallelism(5);
 
 
+        /**
+          4、启动任务
+        */
         env.execute("Ocean_Postgre_To_ES6_Streaming");
 
 

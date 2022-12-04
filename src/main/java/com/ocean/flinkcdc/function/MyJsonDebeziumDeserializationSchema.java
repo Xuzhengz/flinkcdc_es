@@ -1,4 +1,4 @@
-package com.ocean.flinkcdc.source;
+package com.ocean.flinkcdc.function;
 
 import com.alibaba.fastjson.JSONObject;
 import com.ververica.cdc.debezium.DebeziumDeserializationSchema;
