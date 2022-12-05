@@ -68,20 +68,20 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
      */
     @Override
     public void invoke(JSONObject value, Context context) throws Exception {
-        String operation = String.valueOf(value.get("operation"));
+        String operation = value.getString("operation");
         if ("create".equals(operation) || "update".equals(operation)) {
             BulkRequest request = new BulkRequest();
-            request.add(new IndexRequest().
-                    index(Constants.ES_INDEX)
+            request.add(new IndexRequest()
+                    .index(Constants.ES_INDEX)
                     .type(Constants.ES_TYPE)
-                    .id(value.getString("location_id"))
+                    .id(value.getJSONObject("bzdz").getString("location_id"))
                     .source(value)
             );
             BulkResponse response = esClient.bulk(request, RequestOptions.DEFAULT);
             if (response.hasFailures() == false) {
-                LOG.info("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + value.getString("location_id"));
+                LOG.info("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + value.getJSONObject("bzdz").getString("location_id"));
             } else {
-                LOG.error("同步失败，主键id：" + value.getString("location_id"));
+                LOG.error("同步失败，主键id：" + value.getJSONObject("bzdz").getString("location_id"));
                 fileWriter.write(DateFormatUtil.toYmdHms(System.currentTimeMillis()) + "\t" + value.toJSONString() + "\n");
                 fileWriter.flush();
             }
@@ -89,11 +89,11 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
             DeleteRequest deleteRequest = new DeleteRequest(
                     Constants.ES_INDEX,
                     Constants.ES_TYPE,
-                    value.getString("location_id")
+                    value.getJSONObject("bzdz").getString("location_id")
             );
             DeleteResponse deleteResult = esClient.delete(deleteRequest, RequestOptions.DEFAULT);
             System.out.println("操作类型：" + deleteResult.getResult() +
-                    "  删除数据id为：" + value.getString("location_id"));
+                    "  删除数据id为：" + value.getJSONObject("bzdz").getString("location_id"));
         }
     }
 

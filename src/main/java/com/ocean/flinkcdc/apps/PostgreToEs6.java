@@ -1,6 +1,7 @@
 package com.ocean.flinkcdc.apps;
 
 import com.alibaba.fastjson.JSONObject;
+import com.ocean.flinkcdc.bean.Bzdz;
 import com.ocean.flinkcdc.common.Constants;
 import com.ocean.flinkcdc.function.ElasticsearchSink6;
 import com.ocean.flinkcdc.function.MyJsonDebeziumDeserializationSchema;
@@ -94,6 +95,7 @@ public class PostgreToEs6 {
                 geoJson.put("lat", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_wd"), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 geoJson.put("lon", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_jd"), PKCS5PaddingUtils.EPIDEMIC_KEY));
 
+
                 JSONObject dataJson = new JSONObject();
                 dataJson.put("title", PKCS5PaddingUtils.decrypt(sourceData.getString("title"), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 dataJson.put("address", PKCS5PaddingUtils.decrypt(sourceData.getString("address"), PKCS5PaddingUtils.EPIDEMIC_KEY));
@@ -110,7 +112,10 @@ public class PostgreToEs6 {
                 dataJson.put("gd_id", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_id"), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 dataJson.put("gd_parent", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_parent"), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 dataJson.put("active", sourceData.getString("active"));
-                return dataJson;
+
+                sourceData.put("bzdz", dataJson);
+                sourceData.remove("data");
+                return jsonObject;
             }
         }).setParallelism(5);
 
