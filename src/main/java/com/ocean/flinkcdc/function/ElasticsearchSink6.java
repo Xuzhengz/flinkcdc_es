@@ -1,7 +1,9 @@
 package com.ocean.flinkcdc.function;
 
 import com.alibaba.fastjson.JSONObject;
+import com.ocean.flinkcdc.common.Constants;
 import com.ocean.flinkcdc.utils.DateFormatUtil;
+import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.http.HttpHost;
@@ -35,7 +37,6 @@ import java.util.Properties;
 public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
     public static RestHighLevelClient esClient;
     public static final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-    static Properties properties;
     public static FileWriter fileWriter = null;
     private static final Logger LOG = LoggerFactory.getLogger(ElasticsearchSink6.class);
 
@@ -44,14 +45,10 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
      */
     @Override
     public void open(Configuration parameters) throws Exception {
-        ElasticsearchSink6 elasticsearchSink6 = new ElasticsearchSink6();
-        properties = new Properties();
-        InputStream systemResourceAsStream = elasticsearchSink6.getClass().getClassLoader().getResourceAsStream("app.properties");
-        properties.load(systemResourceAsStream);
-        String auth = properties.getProperty("auth");
-        if ("true".equals(auth)) {
-            credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(properties.getProperty("es_username"), properties.getProperty("es_password")));  //es账号密码
-            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(properties.getProperty("es_hostname"), Integer.parseInt(properties.getProperty("es_port"))))
+        //判断es是否开启用户名密码验证
+        if (Constants.ES_LDAP) {
+            credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(Constants.ES_USERNAME, Constants.ES_PASSWORD));  //es账号密码
+            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(Constants.ES_HOSTNAME, Constants.ES_PORT))
                     .setHttpClientConfigCallback(new RestClientBuilder.HttpClientConfigCallback() {
                         public HttpAsyncClientBuilder customizeHttpClient(HttpAsyncClientBuilder httpClientBuilder) {
                             httpClientBuilder.disableAuthCaching();
@@ -59,9 +56,11 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
                         }
                     }));
         } else {
-            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(properties.getProperty("es_hostname"), Integer.parseInt(properties.getProperty("es_port")))));
+            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(Constants.ES_HOSTNAME, Constants.ES_PORT)));
         }
-        fileWriter = new FileWriter(new File(properties.getProperty("dirty_path")), true);
+
+        //初始化脏数据File
+        fileWriter = new FileWriter(new File(Constants.DIRTY_PATH), true);
     }
 
     /**
@@ -73,28 +72,28 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
         if ("create".equals(operation) || "update".equals(operation)) {
             BulkRequest request = new BulkRequest();
             request.add(new IndexRequest().
-                    index(properties.getProperty("es_index"))
-                    .type(properties.getProperty("es_type"))
-                    .id(value.getJSONObject("filterJson")
-                            .getString("location_id"))
-                    .source(value.getJSONObject("filterJson"))
+                    index(Constants.ES_INDEX)
+                    .type(Constants.ES_TYPE)
+                    .id(value.getString("location_id"))
+                    .source(value)
             );
             BulkResponse response = esClient.bulk(request, RequestOptions.DEFAULT);
             if (response.hasFailures() == false) {
-                LOG.info("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + value.getJSONObject("filterJson").get("location_id"));
+                LOG.info("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + value.getString("location_id"));
             } else {
-                LOG.error("同步失败，主键id：" + value.getJSONObject("filterJson").get("location_id"));
+                LOG.error("同步失败，主键id：" + value.getString("location_id"));
                 fileWriter.write(DateFormatUtil.toYmdHms(System.currentTimeMillis()) + "\t" + value.toJSONString() + "\n");
                 fileWriter.flush();
             }
         } else if ("delete".equals(operation)) {
-            DeleteRequest deleteRequest = new DeleteRequest(properties.getProperty("es_index"),
-                    properties.getProperty("es_type"),
-                    value.getJSONObject("filterJson").getString("location_id")
+            DeleteRequest deleteRequest = new DeleteRequest(
+                    Constants.ES_INDEX,
+                    Constants.ES_TYPE,
+                    value.getString("location_id")
             );
             DeleteResponse deleteResult = esClient.delete(deleteRequest, RequestOptions.DEFAULT);
             System.out.println("操作类型：" + deleteResult.getResult() +
-                    "  删除数据id为：" + value.getJSONObject("filterJson").getString("location_id"));
+                    "  删除数据id为：" + value.getString("location_id"));
         }
     }
 

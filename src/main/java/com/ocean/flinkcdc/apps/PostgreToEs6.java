@@ -1,21 +1,21 @@
 package com.ocean.flinkcdc.apps;
 
 import com.alibaba.fastjson.JSONObject;
+import com.ocean.flinkcdc.common.Constants;
 import com.ocean.flinkcdc.function.ElasticsearchSink6;
 import com.ocean.flinkcdc.function.MyJsonDebeziumDeserializationSchema;
-import com.ocean.flinkcdc.function.PaddAsyncFunction;
+import com.ocean.flinkcdc.utils.CheckPointFileUtils;
 import com.ocean.flinkcdc.utils.PKCS5PaddingUtils;
 import com.ververica.cdc.connectors.postgres.PostgreSQLSource;
 import org.apache.flink.api.common.functions.MapFunction;
-import org.apache.flink.streaming.api.datastream.AsyncDataStream;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStreamSource;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
-import java.io.InputStream;
+import java.io.File;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author 徐正洲
@@ -29,14 +29,12 @@ public class PostgreToEs6 {
          * 设置配置信息
          */
         Properties properties = new Properties();
-        InputStream resourceAsStream = PostgreToEs6.class.getClassLoader().getResourceAsStream("app.properties");
-        properties.load(resourceAsStream);
-        properties.setProperty("debuzium.snapshot.mode","never");
+        properties.setProperty("debuzium.snapshot.mode", "never");
         /**
          * 设置故障恢复策略
          */
 //        Configuration configuration = new Configuration();
-//        File checkpoint_path = new File(properties.getProperty("checkpoint_path"));
+//        File checkpoint_path = new File(Constants.CK_PATH);
 //        String maxTimeFileName = CheckPointFileUtils.getMaxTimeFileName(checkpoint_path);
 //
 //        if (maxTimeFileName != null && !"".equalsIgnoreCase(maxTimeFileName.trim())) {
@@ -44,7 +42,9 @@ public class PostgreToEs6 {
 //        }
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-//        设置状态后端
+        /**
+         *  设置状态后端
+         */
 //        env.setStateBackend(new EmbeddedRocksDBStateBackend());
 //        // 启用 checkpoint,设置触发间隔（两次执行开始时间间隔）
 //        env.enableCheckpointing(10000);
@@ -67,48 +67,50 @@ public class PostgreToEs6 {
          * 1、Flink_CDC_POSTGRESQL 实时加密数据源,source只允许并行度为“1”。
          */
         SourceFunction<JSONObject> sourceFunction = PostgreSQLSource.<JSONObject>builder()
-                .hostname(properties.getProperty("pg_hostname"))
-                .port(Integer.valueOf(properties.getProperty("pg_port")))
-                .database(properties.getProperty("pg_database"))
-                .schemaList(properties.getProperty("pg_schemaList"))
-                .tableList(properties.getProperty("pg_tableList"))
-                .username(properties.getProperty("pg_username"))
-                .password(properties.getProperty("pg_password"))
-                .slotName(properties.getProperty("pg_slotname"))
-                .decodingPluginName(properties.getProperty("decodingPluginName"))
+                .hostname(Constants.PG_HOSTNAME)
+                .port(Constants.PG_PORT)
+                .database(Constants.PG_DATABASE)
+                .schemaList(Constants.PG_SCHEMALIST)
+                .tableList(Constants.PG_TABLELIST)
+                .username(Constants.PG_USERNAME)
+                .password(Constants.PG_PASSWORD)
+                .slotName(Constants.PG_SLOTNAME)
+                .decodingPluginName(Constants.PG_DECODINGPLUGINNAME)
                 .deserializer(new MyJsonDebeziumDeserializationSchema())
                 .debeziumProperties(properties)
                 .build();
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction).setParallelism(1);
 
         /**
-         * 2、无状态异步多线程计算，解密操作
+         * 2、无状态计算，解密操作
          */
-
-        SingleOutputStreamOperator<JSONObject> paddDs = AsyncDataStream.unorderedWait(pgStream, new PaddAsyncFunction<JSONObject>(), 100, TimeUnit.SECONDS);
-
         SingleOutputStreamOperator<JSONObject> paddingStream = pgStream.map(new MapFunction<JSONObject, JSONObject>() {
             @Override
             public JSONObject map(JSONObject jsonObject) throws Exception {
-                JSONObject data = (JSONObject) jsonObject.get("data");
+                JSONObject sourceData = JSONObject.parseObject(jsonObject.getString("data"));
+
                 //重新给JSON赋值解密数据和过滤字段
-                JSONObject dataJson = new JSONObject();
                 JSONObject geoJson = new JSONObject();
-                geoJson.put("lat", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_wd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                geoJson.put("lon", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("gd_jd")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("title", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("title")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("address", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("xzqh", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("xzqh")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("pcs", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("pcs")), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                geoJson.put("lat", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_wd"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                geoJson.put("lon", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_jd"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+
+                JSONObject dataJson = new JSONObject();
+                dataJson.put("title", PKCS5PaddingUtils.decrypt(sourceData.getString("title"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("address", PKCS5PaddingUtils.decrypt(sourceData.getString("address"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("xzqh", PKCS5PaddingUtils.decrypt(sourceData.getString("xzqh"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("pcs", PKCS5PaddingUtils.decrypt(sourceData.getString("pcs"), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 dataJson.put("coordinate02", geoJson);
-                dataJson.put("source", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("source")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("location_id", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("location_id")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("jdname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jdname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("jwname", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("jwname")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                dataJson.put("address_type", PKCS5PaddingUtils.decrypt(String.valueOf(data.get("address_type")), PKCS5PaddingUtils.EPIDEMIC_KEY));
-                jsonObject.put("filterJson", dataJson);
-                jsonObject.remove("data");
-                return jsonObject;
+                dataJson.put("source", PKCS5PaddingUtils.decrypt(sourceData.getString("source"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("location_id", PKCS5PaddingUtils.decrypt(sourceData.getString("location_id"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("jdname", PKCS5PaddingUtils.decrypt(sourceData.getString("jdname"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("jwname", PKCS5PaddingUtils.decrypt(sourceData.getString("jwname"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("address_type", PKCS5PaddingUtils.decrypt(sourceData.getString("address_type"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("address_type2", PKCS5PaddingUtils.decrypt(sourceData.getString("address_type2"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("wg", PKCS5PaddingUtils.decrypt(sourceData.getString("wg"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("gd_id", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_id"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("gd_parent", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_parent"), PKCS5PaddingUtils.EPIDEMIC_KEY));
+                dataJson.put("active", sourceData.getString("active"));
+                return dataJson;
             }
         }).setParallelism(5);
 
@@ -121,10 +123,11 @@ public class PostgreToEs6 {
 
 
         /**
-          4、启动任务
-        */
+         4、启动任务
+         */
         env.execute("Ocean_Postgre_To_ES6_Streaming");
 
 
     }
+
 }

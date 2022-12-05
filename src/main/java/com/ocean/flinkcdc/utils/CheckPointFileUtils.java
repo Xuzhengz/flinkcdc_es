@@ -1,15 +1,9 @@
 package com.ocean.flinkcdc.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
-import java.nio.file.Files;
-import java.sql.Timestamp;
-import java.text.FieldPosition;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Date;
 
 /**
  * @author 徐正洲

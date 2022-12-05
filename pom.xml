@@ -32,7 +32,7 @@
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <!--这里写你的main函数所在的类的路径名，也就是Class.forName的那个字符串-->
-                                    <mainClass>com.ocean.flinkcdc.apps.PostgreToEs6Streaming</mainClass>
+                                    <mainClass>com.ocean.flinkcdc.apps.Test</mainClass>
                                 </transformer>
 
                                 <transformer
@@ -65,13 +65,16 @@
         </plugins>
     </build>
 
-
     <properties>
-        <flink.version>1.13.0</flink.version>
         <java.version>1.8</java.version>
-        <scala.binary.version>2.12</scala.binary.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <flink.version>1.13.0</flink.version>
+        <scala.version>2.12</scala.version>
+        <hadoop.version>3.1.3</hadoop.version>
         <slf4j.version>1.7.30</slf4j.version>
     </properties>
+
     <dependencies>
         <!-- 引入 Flink 相关依赖-->
         <dependency>
@@ -79,26 +82,61 @@
             <artifactId>flink-java</artifactId>
             <version>${flink.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
+            <artifactId>flink-streaming-java_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-connector-kafka_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-json</artifactId>
             <version>${flink.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-clients_${scala.binary.version}</artifactId>
+            <artifactId>flink-connector-jdbc_${scala.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-connector-elasticsearch6_${scala.binary.version}</artifactId>
+            <artifactId>flink-table-api-java-bridge_${scala.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-statebackend-rocksdb_${scala.binary.version}</artifactId>
+            <artifactId>flink-cep_${scala.version}</artifactId>
             <version>${flink.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner-blink_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-runtime_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-runtime-web_${scala.version}</artifactId>
+            <version>${flink.version}</version>
+        </dependency>
+
         <!-- 引入日志管理相关依赖-->
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -110,12 +148,6 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>${slf4j.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.logging.log4j</groupId>
-            <artifactId>log4j-to-slf4j</artifactId>
-            <version>2.14.0</version>
-        </dependency>
-
         <dependency>
             <groupId>com.typesafe</groupId>
             <artifactId>config</artifactId>
@@ -129,21 +161,21 @@
         </dependency>
 
 
-<!--        flink 连接postgre-->
+        <!--        flink 连接postgre-->
         <dependency>
             <groupId>com.ververica</groupId>
             <artifactId>flink-connector-postgres-cdc</artifactId>
             <!-- The dependency is available only for stable releases, SNAPSHOT dependency need build by yourself. -->
             <version>2.2.1</version>
         </dependency>
-<!--        hadoop客户端-->
+        <!--        hadoop客户端-->
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>3.1.3</version>
         </dependency>
 
-<!--        es-->
+        <!--        es-->
         <dependency>
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch</artifactId>
@@ -177,6 +209,18 @@
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>4.1.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.20</version>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.1</version>
+            <scope>compile</scope>
         </dependency>
 
     </dependencies>
