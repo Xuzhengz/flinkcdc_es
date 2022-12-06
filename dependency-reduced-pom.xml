@@ -25,7 +25,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>com.ocean.flinkcdc.apps.Test</mainClass>
+                  <mainClass>com.ocean.flinkcdc.apps.PostgreToEs6</mainClass>
                 </transformer>
                 <transformer>
                   <resource>reference.conf</resource>

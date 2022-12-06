@@ -43,11 +43,10 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
         //判断es是否开启用户名密码验证
         if (Constants.ES_LDAP) {
             credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(Constants.ES_USERNAME, Constants.ES_PASSWORD));  //es账号密码
-            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(Constants.ES_HOSTNAME, Constants.ES_PORT))
-                    .setHttpClientConfigCallback(httpClientBuilder -> {
-                        httpClientBuilder.disableAuthCaching();
-                        return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-                    }));
+            esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(Constants.ES_HOSTNAME, Constants.ES_PORT)).setHttpClientConfigCallback(httpClientBuilder -> {
+                httpClientBuilder.disableAuthCaching();
+                return httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+            }));
         } else {
             esClient = new RestHighLevelClient(RestClient.builder(new HttpHost(Constants.ES_HOSTNAME, Constants.ES_PORT)));
         }
@@ -62,32 +61,23 @@ public class ElasticsearchSink6 extends RichSinkFunction<JSONObject> {
     @Override
     public void invoke(JSONObject value, Context context) throws Exception {
         String operation = value.getString("operation");
-        Bzdz data = JSONObject.parseObject(value.getString("bzdz"), Bzdz.class);
+        JSONObject bzdz = JSONObject.parseObject(value.getString("bzdz"));
+        String locationId = bzdz.getString("location_id");
         if ("create".equals(operation) || "update".equals(operation)) {
             BulkRequest request = new BulkRequest();
-            request.add(new IndexRequest()
-                    .index(Constants.ES_INDEX)
-                    .type(Constants.ES_TYPE)
-                    .id(data.getLocation_id())
-                    .source(data)
-            );
+            request.add(new IndexRequest().index(Constants.ES_INDEX).type(Constants.ES_TYPE).id(locationId).source(bzdz));
             BulkResponse response = esClient.bulk(request, RequestOptions.DEFAULT);
             if (!response.hasFailures()) {
-                LOG.info("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + data.getLocation_id());
+                LOG.info("操作成功" + "\t花费时长：" + response.getTook() + "\t主键id：" + locationId);
             } else {
-                LOG.error("同步失败，主键id：" + data.getLocation_id());
-                fileWriter.write(DateFormatUtil.toYmdHms(System.currentTimeMillis()) + "\t" + data + "\n");
+                LOG.error("同步失败，主键id：" + locationId);
+                fileWriter.write(DateFormatUtil.toYmdHms(System.currentTimeMillis()) + "\t" + bzdz + "\n");
                 fileWriter.flush();
             }
         } else if ("delete".equals(operation)) {
-            DeleteRequest deleteRequest = new DeleteRequest(
-                    Constants.ES_INDEX,
-                    Constants.ES_TYPE,
-                    data.getLocation_id()
-            );
+            DeleteRequest deleteRequest = new DeleteRequest(Constants.ES_INDEX, Constants.ES_TYPE, locationId);
             DeleteResponse deleteResult = esClient.delete(deleteRequest, RequestOptions.DEFAULT);
-            System.out.println("操作类型：" + deleteResult.getResult() +
-                    "  删除数据id为：" + data.getLocation_id());
+            LOG.info("操作类型：" + deleteResult.getResult() + "  删除数据id为：" + locationId);
         }
     }
 

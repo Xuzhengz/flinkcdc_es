@@ -47,6 +47,4 @@ public class Bzdz {
     private String gd_parent;
 
     private String active;
-
-    private String operation;
 }

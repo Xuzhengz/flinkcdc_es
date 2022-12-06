@@ -81,11 +81,12 @@ public class PostgreToEs6 {
                 .debeziumProperties(properties)
                 .build();
         DataStreamSource<JSONObject> pgStream = env.addSource(sourceFunction).setParallelism(1);
+        pgStream.print("原始数据>>>>");
 
         /**
          * 2、无状态计算，解密操作
          */
-        SingleOutputStreamOperator<JSONObject> paddingStream = pgStream.map(new MapFunction<JSONObject, JSONObject>() {
+        SingleOutputStreamOperator<JSONObject> paddingStream = pgStream.rebalance().map(new MapFunction<JSONObject, JSONObject>() {
             @Override
             public JSONObject map(JSONObject jsonObject) throws Exception {
                 JSONObject sourceData = JSONObject.parseObject(jsonObject.getString("data"));
@@ -113,18 +114,20 @@ public class PostgreToEs6 {
                 dataJson.put("gd_parent", PKCS5PaddingUtils.decrypt(sourceData.getString("gd_parent"), PKCS5PaddingUtils.EPIDEMIC_KEY));
                 dataJson.put("active", sourceData.getString("active"));
 
-                sourceData.put("bzdz", dataJson);
-                sourceData.remove("data");
+                jsonObject.put("bzdz", dataJson);
+                jsonObject.remove("data");
                 return jsonObject;
             }
-        }).setParallelism(5);
+        }).setParallelism(8);
+
+        paddingStream.print("解密数据>>>>>");
 
 
         /**
          * 3、自定义ElasticSearch6 Sink写入。
          */
 
-        paddingStream.addSink(new ElasticsearchSink6()).setParallelism(5);
+        paddingStream.rebalance().addSink(new ElasticsearchSink6()).setParallelism(8).name("Es6_Sink");
 
 
         /**
